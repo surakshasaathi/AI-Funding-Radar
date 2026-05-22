@@ -7,7 +7,22 @@ AGENT_ID        = "agent_0121Q7QMxZq5T7mLfgZwtUXD"        # from your Managed Ag
 ENVIRONMENT_ID  = "env_01Sg7Ax7ZbKNBZPFLmM3DNcJ"
 VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"        # vault holding your Gmail OAuth credential
 
-MEMORY_STORE_ID = "memstore_019kgkUhdtXVX2CAHGcmZE2"
+# Leave empty on first run — script will create it and print the ID
+MEMORY_STORE_ID = ""
+
+def get_or_create_memory_store(client):
+    """Use stored ID if set, otherwise create a new store and print the ID to save."""
+    if MEMORY_STORE_ID:
+        return MEMORY_STORE_ID
+
+    print("⚙️  No memory store ID set — creating one...")
+    store = client.beta.memory_stores.create(
+        name="AI Funding Radar",
+        description="Stores seen funding round keys for deduplication across daily runs.",
+    )
+    print(f"✅ Memory store created: {store.id}")
+    print(f"   👉 Save this ID in trigger.py as MEMORY_STORE_ID = \"{store.id}\"")
+    return store.id
 
 def main():
     parser = argparse.ArgumentParser()
@@ -16,7 +31,9 @@ def main():
 
     run_date = args.date if args.date else str(date.today())
 
-    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    client = anthropic.Anthropic()
+
+    memory_store_id = get_or_create_memory_store(client)
 
     session = client.beta.sessions.create(
         agent=AGENT_ID,
@@ -26,7 +43,7 @@ def main():
         resources=[
             {
                 "type": "memory_store",
-                "memory_store_id": MEMORY_STORE_ID,
+                "memory_store_id": memory_store_id,
                 "access": "read_write",
                 "instructions": (
                     "Stores seen funding round keys for deduplication across daily runs. "
@@ -45,7 +62,7 @@ def main():
     print(f"✅ Session created: {session.id}")
     print(f"   Status: {session.status}")
     print(f"   Date: {run_date}")
-    print(f"   Memory store: {MEMORY_STORE_ID}")
+    print(f"   Memory store: {memory_store_id}")
 
 if __name__ == "__main__":
     main()
