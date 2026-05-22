@@ -64,5 +64,14 @@ def main():
     print(f"   Date: {run_date}")
     print(f"   Memory store: {memory_store_id}")
 
+ client.beta.sessions.events.send(
+        session_id=session.id,
+        events=[{
+            "type": "user.message",
+            "content": [{"type": "text", "text": f"run {run_date}"}]
+        }]
+    )
+    print(f"✅ Trigger message sent — agent is now running.")
+
 if __name__ == "__main__":
     main()
