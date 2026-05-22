@@ -2,16 +2,12 @@ import anthropic
 import argparse
 from datetime import date
 
-# ── Store these as GitHub repository variables (Settings → Secrets and variables → Actions → Variables tab) ──
-AGENT_ID        = "agent_0121Q7QMxZq5T7mLfgZwtUXD"        # from your Managed Agents dashboard
+AGENT_ID        = "agent_0121Q7QMxZq5T7mLfgZwtUXD"
 ENVIRONMENT_ID  = "env_01Sg7Ax7ZbKNBZPFLmM3DNcJ"
-VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"        # vault holding your Gmail OAuth credential
-
-# Leave empty on first run — script will create it and print the ID
+VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"
 MEMORY_STORE_ID = "memstore_013vh5eFdSoGH636PpSjHJKy"
 
 def get_or_create_memory_store(client):
-    """Use stored ID if set, otherwise create a new store and print the ID to save."""
     if MEMORY_STORE_ID:
         return MEMORY_STORE_ID
 
@@ -64,7 +60,7 @@ def main():
     print(f"   Date: {run_date}")
     print(f"   Memory store: {memory_store_id}")
 
- client.beta.sessions.events.send(
+    client.beta.sessions.events.send(
         session_id=session.id,
         events=[{
             "type": "user.message",
