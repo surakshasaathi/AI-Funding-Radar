@@ -8,7 +8,7 @@ ENVIRONMENT_ID  = "env_01Sg7Ax7ZbKNBZPFLmM3DNcJ"
 VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"        # vault holding your Gmail OAuth credential
 
 # Leave empty on first run — script will create it and print the ID
-MEMORY_STORE_ID = ""
+MEMORY_STORE_ID = "memstore_013vh5eFdSoGH636PpSjHJKy"
 
 def get_or_create_memory_store(client):
     """Use stored ID if set, otherwise create a new store and print the ID to save."""
