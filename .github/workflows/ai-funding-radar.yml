@@ -1,0 +1,29 @@
+name: AI Funding Radar — Daily Trigger
+
+on:
+  schedule:
+    - cron: '30 1 * * *'  # 7:00 AM IST (UTC+5:30)
+  workflow_dispatch:       # manual trigger from GitHub Actions UI
+    inputs:
+      date:
+        description: 'Optional date override (YYYY-MM-DD)'
+        required: false
+
+jobs:
+  trigger-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Anthropic SDK
+        run: pip install 'anthropic>=0.92.0'
+
+      - name: Trigger AI Funding Radar session
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python trigger.py --date "${{ github.event.inputs.date }}"
