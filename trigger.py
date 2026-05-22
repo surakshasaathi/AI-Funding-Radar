@@ -3,9 +3,9 @@ import argparse
 from datetime import date
 
 # ── Store these as GitHub repository variables (Settings → Secrets and variables → Actions → Variables tab) ──
-AGENT_ID        = "your_agent_id_here"        # from your Managed Agents dashboard
-ENVIRONMENT_ID  = "your_environment_id_here"
-VAULT_ID        = "your_vault_id_here"        # vault holding your Gmail OAuth credential
+AGENT_ID        = "agent_0121Q7QMxZq5T7mLfgZwtUXD"        # from your Managed Agents dashboard
+ENVIRONMENT_ID  = "env_01Sg7Ax7ZbKNBZPFLmM3DNcJ"
+VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"        # vault holding your Gmail OAuth credential
 
 MEMORY_STORE_ID = "memstore_019kgkUhdtXVX2CAHGcmZE2"
 
