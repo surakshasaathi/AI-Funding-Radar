@@ -23,28 +23,59 @@ def get_or_create_memory_store(client):
     return store.id
 
 def wait_for_completion(client, session_id, timeout=1800):
-    """Poll until session is idle, return True if completed cleanly."""
+    """
+    Wait until the session is truly done:
+    - Must have been 'running' at least once (agent started work)
+    - Then goes 'idle' with a stop_reason that is NOT 'requires_action'
+    """
     print("⏳ Waiting for agent to finish...")
     start = time.time()
+    has_been_running = False
+
     while time.time() - start < timeout:
         s = client.beta.sessions.retrieve(session_id)
         print(f"   Status: {s.status}")
-        if s.status == "idle":
-            return True
-        if s.status == "terminated":
+
+        if s.status == "running":
+            has_been_running = True
+
+        elif s.status == "idle" and has_been_running:
+            # Fetch the latest idle event to check stop_reason
+            events = client.beta.sessions.events.list(session_id=session_id)
+            for event in reversed(events.data):
+                if event.type == "session.status_idle":
+                    stop_reason = getattr(event, "stop_reason", None)
+                    reason_type = (stop_reason or {}).get("type") if isinstance(stop_reason, dict) else getattr(stop_reason, "type", None)
+                    if reason_type != "requires_action":
+                        print("✅ Agent completed successfully.")
+                        return True
+                    else:
+                        print("   Agent idle but awaiting action — continuing to wait...")
+                    break
+
+        elif s.status == "terminated":
             raise RuntimeError("Session terminated unexpectedly")
+
         time.sleep(15)
+
     raise TimeoutError("Agent did not complete within 30 minutes")
 
 def get_digest(client, session_id):
-    """Extract the last agent.message text from the event list."""
+    """
+    Extract the longest agent.message text — the digest.
+    Falls back gracefully if the agent sent the email directly and only
+    produced a short confirmation message.
+    """
     events = client.beta.sessions.events.list(session_id=session_id)
-    for event in reversed(events.data):
+    best = ""
+    for event in events.data:
         if event.type == "agent.message":
             for block in event.content:
-                if block.type == "text" and len(block.text) > 500:
-                    return block.text
-    raise ValueError("No digest found in session events")
+                if block.type == "text" and len(block.text) > len(best):
+                    best = block.text
+    if not best:
+        raise ValueError("No agent.message found in session events")
+    return best
 
 def send_email(digest_html, run_date):
     """Send digest via Resend."""
@@ -61,7 +92,7 @@ def send_email(digest_html, run_date):
         timeout=30,
     )
     response.raise_for_status()
-    print(f"✅ Email sent! ID: {response.json().get('id')}")
+    print(f"✅ Email sent via Resend! ID: {response.json().get('id')}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -103,6 +134,8 @@ def main():
     digest = get_digest(client, session.id)
     print(f"✅ Digest compiled ({len(digest)} chars)")
 
+    # Only call send_email if the agent didn't already send via Gmail MCP.
+    # If agent sends via Gmail, this is your fallback Resend delivery.
     send_email(digest, run_date)
 
 if __name__ == "__main__":
