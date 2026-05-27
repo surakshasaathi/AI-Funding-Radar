@@ -1,0 +1,41 @@
+# .github/workflows/fix-agent.yml
+name: Fix Agent Config
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install anthropic
+        run: pip install 'anthropic>=0.92.0'
+
+      - name: Clear stale Gmail MCP from agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python - <<'EOF'
+          import anthropic
+          client = anthropic.Anthropic()
+          agent = client.beta.agents.update(
+              "agent_0121Q7QMxZq5T7mLfgZwtUXD",
+              mcp_servers=[],
+              tools=[{
+                  "type": "agent_toolset_20260401",
+                  "default_config": {"enabled": True, "permission_policy": {"type": "always_allow"}},
+                  "configs": [
+                      {"name": "web_search", "enabled": True, "permission_policy": {"type": "always_allow"}},
+                      {"name": "web_fetch", "enabled": True, "permission_policy": {"type": "always_allow"}},
+                      {"name": "write", "enabled": True, "permission_policy": {"type": "always_allow"}},
+                      {"name": "read", "enabled": True, "permission_policy": {"type": "always_allow"}},
+                  ],
+              }],
+          )
+          print(f"✅ Agent updated, version: {agent.version}")
+          EOF
