@@ -60,17 +60,17 @@ def wait_for_completion(client, session_id, timeout=1800):
     raise TimeoutError("Agent did not complete within 30 minutes")
 
 def get_digest(client, session_id):
-    """Extract the LAST agent.message text — that's the final digest."""
+    """Concatenate ALL agent.message text blocks — the digest spans multiple events."""
     events = client.beta.sessions.events.list(session_id=session_id)
-    last = ""
+    parts = []
     for event in events.data:
         if event.type == "agent.message":
             for block in event.content:
                 if block.type == "text" and block.text.strip():
-                    last = block.text  # keep overwriting — last one wins
-    if not last:
+                    parts.append(block.text)
+    if not parts:
         raise ValueError("No agent.message found in session events")
-    return last
+    return "\n".join(parts)
 
 def digest_to_html(text, run_date):
     """Convert the agent's plain-text digest into styled HTML for Resend."""
