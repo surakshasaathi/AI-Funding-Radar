@@ -60,17 +60,35 @@ def wait_for_completion(client, session_id, timeout=1800):
     raise TimeoutError("Agent did not complete within 30 minutes")
 
 def get_digest(client, session_id):
-    """Concatenate ALL agent.message text blocks — the digest spans multiple events."""
+    """Extract only the final digest between sentinel delimiters."""
     events = client.beta.sessions.events.list(session_id=session_id)
-    parts = []
+    
+    # Concatenate all agent.message text
+    full_text = []
     for event in events.data:
         if event.type == "agent.message":
             for block in event.content:
                 if block.type == "text" and block.text.strip():
-                    parts.append(block.text)
-    if not parts:
-        raise ValueError("No agent.message found in session events")
-    return "\n".join(parts)
+                    full_text.append(block.text)
+    
+    combined = "\n".join(full_text)
+    
+    # Extract only what's between the delimiters
+    start_marker = "<<<DIGEST_START>>>"
+    end_marker = "<<<DIGEST_END>>>"
+    
+    start_idx = combined.find(start_marker)
+    end_idx = combined.find(end_marker)
+    
+    if start_idx == -1 or end_idx == -1:
+        raise ValueError("Digest delimiters not found in session output")
+    
+    digest = combined[start_idx + len(start_marker):end_idx].strip()
+    
+    if not digest:
+        raise ValueError("Empty digest extracted between delimiters")
+    
+    return digest
 
 def digest_to_html(text, run_date):
     """Convert the agent's plain-text digest into styled HTML for Resend."""
