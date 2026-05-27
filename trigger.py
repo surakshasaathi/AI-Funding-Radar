@@ -9,7 +9,7 @@ AGENT_ID        = "agent_0121Q7QMxZq5T7mLfgZwtUXD"
 ENVIRONMENT_ID  = "env_01Sg7Ax7ZbKNBZPFLmM3DNcJ"
 VAULT_ID        = "vlt_011CbG4zp3TC7cLFTFbHFmCZ"
 MEMORY_STORE_ID = "memstore_013vh5eFdSoGH636PpSjHJKy"
-RECIPIENT       = "mohan.anand.mnnit@gmail.com"
+RECIPIENT       = "claudesender2026@gmail.com"
 
 def get_or_create_memory_store(client):
     if MEMORY_STORE_ID:
@@ -23,11 +23,6 @@ def get_or_create_memory_store(client):
     return store.id
 
 def wait_for_completion(client, session_id, timeout=1800):
-    """
-    Wait until the session is truly done:
-    - Must have been 'running' at least once (agent started work)
-    - Then goes 'idle' with a stop_reason that is NOT 'requires_action'
-    """
     print("⏳ Waiting for agent to finish...")
     start = time.time()
     has_been_running = False
@@ -40,12 +35,15 @@ def wait_for_completion(client, session_id, timeout=1800):
             has_been_running = True
 
         elif s.status == "idle" and has_been_running:
-            # Fetch the latest idle event to check stop_reason
             events = client.beta.sessions.events.list(session_id=session_id)
             for event in reversed(events.data):
                 if event.type == "session.status_idle":
                     stop_reason = getattr(event, "stop_reason", None)
-                    reason_type = (stop_reason or {}).get("type") if isinstance(stop_reason, dict) else getattr(stop_reason, "type", None)
+                    reason_type = (
+                        stop_reason.get("type")
+                        if isinstance(stop_reason, dict)
+                        else getattr(stop_reason, "type", None)
+                    )
                     if reason_type != "requires_action":
                         print("✅ Agent completed successfully.")
                         return True
@@ -61,11 +59,7 @@ def wait_for_completion(client, session_id, timeout=1800):
     raise TimeoutError("Agent did not complete within 30 minutes")
 
 def get_digest(client, session_id):
-    """
-    Extract the longest agent.message text — the digest.
-    Falls back gracefully if the agent sent the email directly and only
-    produced a short confirmation message.
-    """
+    """Extract the longest agent.message text as the digest."""
     events = client.beta.sessions.events.list(session_id=session_id)
     best = ""
     for event in events.data:
@@ -79,7 +73,10 @@ def get_digest(client, session_id):
 
 def send_email(digest_html, run_date):
     """Send digest via Resend."""
-    api_key = os.environ["RESEND_API_KEY"]
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        raise EnvironmentError("RESEND_API_KEY is not set — add it to GitHub Secrets")
+
     response = httpx.post(
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -91,7 +88,12 @@ def send_email(digest_html, run_date):
         },
         timeout=30,
     )
-    response.raise_for_status()
+
+    print(f"   Resend status: {response.status_code}")
+    if not response.is_success:
+        print(f"   Resend error: {response.text}")
+        response.raise_for_status()
+
     print(f"✅ Email sent via Resend! ID: {response.json().get('id')}")
 
 def main():
@@ -125,7 +127,10 @@ def main():
 
     client.beta.sessions.events.send(
         session_id=session.id,
-        events=[{"type": "user.message", "content": [{"type": "text", "text": f"run {run_date}"}]}]
+        events=[{
+            "type": "user.message",
+            "content": [{"type": "text", "text": f"run {run_date}"}],
+        }],
     )
     print("✅ Trigger message sent — agent is now running.")
 
@@ -133,10 +138,10 @@ def main():
 
     digest = get_digest(client, session.id)
     print(f"✅ Digest compiled ({len(digest)} chars)")
+    print(f"   Preview: {digest[:300]}...")
 
-    # Only call send_email if the agent didn't already send via Gmail MCP.
-    # If agent sends via Gmail, this is your fallback Resend delivery.
     send_email(digest, run_date)
+    print(f"🎉 AI Funding Radar run complete for {run_date}")
 
 if __name__ == "__main__":
     main()
